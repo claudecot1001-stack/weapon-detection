@@ -1,0 +1,23 @@
+[phases.setup]
+nixPkgs = [
+  "python313",
+  "libglib",
+  "libGL",
+  "libxcb",
+  "xorg.libX11",
+  "xorg.libXext",
+  "xorg.libSM",
+  "ffmpeg",
+  "gcc",
+]
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install opencv-python-headless",
+  "pip uninstall -y opencv-python || true",
+  "pip install -r requirements.txt",
+]
+
+[start]
+cmd = "gunicorn --worker-class gthread --workers 1 --threads 4 --bind 0.0.0.0:$PORT --timeout 120 app:app"
