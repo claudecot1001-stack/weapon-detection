@@ -50,19 +50,7 @@ os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
 
 # Load model YOLO sekali saat startup (biar tidak reload tiap frame)
 print(f"[INFO] Loading model dari {MODEL_PATH} ...")
-_model = None
-_model_lock = threading.Lock()
-
-def get_model():
-    global _model
-    if _model is None:
-        with _model_lock:
-            if _model is None:
-                print(f"[INFO] Loading model dari {MODEL_PATH} ...")
-                _model = YOLO(MODEL_PATH)
-                print("[INFO] Model berhasil di-load.")
-    return _model
-
+model = YOLO(MODEL_PATH)
 print("[INFO] Model berhasil di-load.")
 
 FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
@@ -576,9 +564,7 @@ def get_screenshots():
 
 if __name__ == "__main__":
     try:
-        port = int(os.environ.get("PORT", 5000))
-        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
-
+        app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)
     finally:
         if camera is not None:
             camera.release()
