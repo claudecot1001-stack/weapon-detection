@@ -2,4 +2,3 @@ Flask
 gunicorn
 opencv-python-headless
 ultralytics
-gevent>=24.10.1
