@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload File - Deteksi YOLO</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #262b35;
+      --accent: #f5a623;
+      --text: #e8e8e8;
+      --text-dim: #9aa0a6;
+      --success: #3ddc84;
+      --danger: #e25555;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px;
+    }
+
+    nav a {
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      transition: 0.2s ease;
+    }
+
+    nav a:hover { color: var(--text); }
+
+    nav a.active {
+      background: var(--accent);
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    .layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      width: 100%;
+      max-width: 1100px;
+      justify-content: center;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      flex: 1 1 420px;
+      max-width: 520px;
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      color: var(--accent);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s ease;
+      position: relative;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(245, 166, 35, 0.06);
+    }
+
+    .dropzone p {
+      margin: 8px 0 0;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    .dropzone .icon {
+      font-size: 2.2rem;
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-info {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      display: none;
+    }
+
+    .file-info.show { display: block; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      flex: 1;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #1d212b;
+      color: var(--text);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #1a1a1a;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    button.primary:hover:not(:disabled) {
+      color: #1a1a1a;
+      filter: brightness(1.08);
+    }
+
+    .progress-wrap {
+      margin-top: 14px;
+      display: none;
+    }
+
+    .progress-wrap.show { display: block; }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #1d212b;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+
+    .progress-label {
+      margin-top: 6px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    .result-area {
+      min-height: 200px;
+    }
+
+    .result-media {
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      margin-bottom: 14px;
+    }
+
+    .result-media img, .result-media video {
+      width: 100%;
+      display: block;
+    }
+
+    .empty-state {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 60px 10px;
+    }
+
+    .error-state {
+      color: var(--danger);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 20px 10px;
+    }
+
+    #detectionList {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    #detectionList li {
+      background: #1d212b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+
+    #detectionList li span.conf {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    a.download-link {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 0.82rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a.download-link:hover { text-decoration: underline; }
+
+    .gallery-section {
+      width: 100%;
+      max-width: 1100px;
+      margin-top: 28px;
+    }
+
+    .gallery-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .gallery-header h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: var(--accent);
+    }
+
+    .gallery-header button {
+      flex: none;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+
+    .gallery-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .gallery-card img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      display: block;
+      background: #000;
+      cursor: zoom-in;
+      transition: 0.15s ease;
+    }
+
+    .gallery-card img:hover {
+      opacity: 0.85;
+    }
+
+    /* Modal / lightbox untuk pop-up gambar */
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+      cursor: zoom-out;
+    }
+
+    .lightbox-overlay.show {
+      display: flex;
+    }
+
+    .lightbox-content {
+      max-width: 90vw;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lightbox-content img {
+      max-width: 100%;
+      max-height: 75vh;
+      border-radius: 10px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      cursor: default;
+    }
+
+    .lightbox-info {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 18px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      font-size: 0.85rem;
+      cursor: default;
+    }
+
+    .lightbox-info .conf {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      color: var(--text);
+      font-size: 1.8rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      flex: none;
+      padding: 0;
+      width: auto;
+    }
+
+    .lightbox-close:hover { color: var(--accent); }
+
+    .gallery-card .meta {
+      padding: 8px 10px;
+    }
+
+    .gallery-card .meta .label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      margin-bottom: 4px;
+    }
+
+    .gallery-card .meta .label-row span.conf {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .gallery-card .meta .time {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .gallery-empty {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 30px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/">📷 Live Camera</a>
+    <a href="/upload" class="active">📁 Upload File</a>
+  </nav>
+
+  <header>
+    <h1>📁 Deteksi dari Upload File</h1>
+    <p>Mendukung gambar (jpg, png, webp, bmp) dan video (mp4, avi, mov, mkv)</p>
+  </header>
+
+  <div class="layout">
+    <!-- Card kiri: form upload -->
+    <div class="card">
+      <h2>1. Pilih File</h2>
+
+      <div class="dropzone" id="dropzone">
+        <div class="icon">⬆️</div>
+        <p><strong>Klik atau seret file ke sini</strong></p>
+        <p>Gambar atau video, maks. 200MB</p>
+        <input type="file" id="fileInput" accept="image/*,video/*" />
+      </div>
+
+      <div class="file-info" id="fileInfo"></div>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel">Mengupload...</div>
+      </div>
+
+      <div class="actions">
+        <button id="btnReset">🗑️ Reset</button>
+        <button id="btnDetect" class="primary" disabled>🔍 Deteksi Sekarang</button>
+      </div>
+    </div>
+
+    <!-- Card kanan: hasil deteksi -->
+    <div class="card">
+      <h2>2. Hasil Deteksi</h2>
+      <div class="result-area" id="resultArea">
+        <div class="empty-state">Belum ada file yang diproses.</div>
+      </div>
+      <ul id="detectionList"></ul>
+    </div>
+  </div>
+
+  <div class="gallery-section">
+    <div class="gallery-header">
+      <h2>🖼️ Riwayat Screenshot Deteksi</h2>
+      <button id="btnRefreshGallery">🔄 Refresh</button>
+    </div>
+    <div class="gallery-grid" id="galleryGrid">
+      <div class="gallery-empty">Belum ada screenshot tersimpan.</div>
+    </div>
+  </div>
+
+  <!-- Modal / lightbox untuk menampilkan gambar screenshot ukuran besar -->
+  <div class="lightbox-overlay" id="lightboxOverlay">
+    <button class="lightbox-close" id="lightboxClose">&times;</button>
+    <div class="lightbox-content" id="lightboxContent">
+      <img id="lightboxImg" src="" alt="Screenshot deteksi diperbesar" />
+      <div class="lightbox-info" id="lightboxInfo"></div>
+    </div>
+  </div>
+
+  <script>
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const fileInfo = document.getElementById("fileInfo");
+    const btnDetect = document.getElementById("btnDetect");
+    const btnReset = document.getElementById("btnReset");
+    const resultArea = document.getElementById("resultArea");
+    const detectionList = document.getElementById("detectionList");
+    const progressWrap = document.getElementById("progressWrap");
+    const progressFill = document.getElementById("progressFill");
+    const progressLabel = document.getElementById("progressLabel");
+    const galleryGrid = document.getElementById("galleryGrid");
+    const btnRefreshGallery = document.getElementById("btnRefreshGallery");
+    const lightboxOverlay = document.getElementById("lightboxOverlay");
+    const lightboxImg = document.getElementById("lightboxImg");
+    const lightboxInfo = document.getElementById("lightboxInfo");
+    const lightboxClose = document.getElementById("lightboxClose");
+    const lightboxContent = document.getElementById("lightboxContent");
+
+    let selectedFile = null;
+    let galleryItems = [];
+
+    function renderGallery(items) {
+      galleryItems = items || [];
+
+      if (galleryItems.length === 0) {
+        galleryGrid.innerHTML = `<div class="gallery-empty">Belum ada screenshot tersimpan.</div>`;
+        return;
+      }
+
+      galleryGrid.innerHTML = galleryItems
+        .map(
+          (s, idx) => `
+          <div class="gallery-card">
+            <img src="${s.url}" alt="${s.label}" loading="lazy" data-index="${idx}" />
+            <div class="meta">
+              <div class="label-row">
+                <span>${s.label}</span>
+                <span class="conf">${(s.confidence * 100).toFixed(0)}%</span>
+              </div>
+              <div class="time">${s.time}</div>
+            </div>
+          </div>`
+        )
+        .join("");
+    }
+
+    // Event delegation: klik gambar manapun di dalam galeri akan membuka lightbox
+    galleryGrid.addEventListener("click", (e) => {
+      const img = e.target.closest("img[data-index]");
+      if (!img) return;
+      const idx = parseInt(img.dataset.index, 10);
+      openLightbox(galleryItems[idx]);
+    });
+
+    function openLightbox(item) {
+      if (!item) return;
+      lightboxImg.src = item.url;
+      lightboxImg.alt = item.label;
+      lightboxInfo.innerHTML = `
+        <span>${item.label}</span>
+        <span class="conf">${(item.confidence * 100).toFixed(0)}%</span>
+        <span>${item.time}</span>
+      `;
+      lightboxOverlay.classList.add("show");
+    }
+
+    function closeLightbox() {
+      lightboxOverlay.classList.remove("show");
+      lightboxImg.src = "";
+    }
+
+    // Klik area gelap (overlay) menutup modal, tapi klik di konten (gambar/info) tidak
+    lightboxOverlay.addEventListener("click", (e) => {
+      if (e.target === lightboxOverlay) closeLightbox();
+    });
+    lightboxContent.addEventListener("click", (e) => e.stopPropagation());
+    lightboxClose.addEventListener("click", closeLightbox);
+
+    // Tutup modal dengan tombol Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && lightboxOverlay.classList.contains("show")) {
+        closeLightbox();
+      }
+    });
+
+    async function loadGallery() {
+      try {
+        const res = await fetch("/screenshots");
+        const data = await res.json();
+        renderGallery(data);
+      } catch (err) {
+        console.error("Gagal memuat galeri screenshot:", err);
+      }
+    }
+
+    btnRefreshGallery.addEventListener("click", loadGallery);
+
+    // Muat galeri saat halaman pertama kali dibuka
+    loadGallery();
+
+    function formatSize(bytes) {
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function setSelectedFile(file) {
+      if (!file) return;
+      selectedFile = file;
+      fileInfo.textContent = `📄 ${file.name} (${formatSize(file.size)})`;
+      fileInfo.classList.add("show");
+      btnDetect.disabled = false;
+    }
+
+    // Klik dropzone -> buka file picker (input sudah menutupi area, ini extra safety)
+    dropzone.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        setSelectedFile(e.target.files[0]);
+      }
+    });
+
+    // Drag & drop
+    ["dragenter", "dragover"].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+      })
+    );
+
+    ["dragleave", "drop"].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+      })
+    );
+
+    dropzone.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file) setSelectedFile(file);
+    });
+
+    btnReset.addEventListener("click", () => {
+      selectedFile = null;
+      fileInput.value = "";
+      fileInfo.classList.remove("show");
+      btnDetect.disabled = true;
+      progressWrap.classList.remove("show");
+      progressFill.style.width = "0%";
+      detectionList.innerHTML = "";
+      resultArea.innerHTML = `<div class="empty-state">Belum ada file yang diproses.</div>`;
+    });
+
+    btnDetect.addEventListener("click", () => {
+      if (!selectedFile) return;
+      uploadAndDetect(selectedFile);
+    });
+
+    function uploadAndDetect(file) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      btnDetect.disabled = true;
+      progressWrap.classList.add("show");
+      progressFill.style.width = "0%";
+      progressLabel.textContent = "Mengupload & mendeteksi... (video bisa butuh waktu lebih lama)";
+      resultArea.innerHTML = `<div class="empty-state">⏳ Memproses file...</div>`;
+      detectionList.innerHTML = "";
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/upload");
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          progressFill.style.width = percent + "%";
+          progressLabel.textContent = `Mengupload... ${percent}%`;
+        }
+      };
+
+      xhr.onload = () => {
+        btnDetect.disabled = false;
+        progressLabel.textContent = "Selesai";
+
+        try {
+          const data = JSON.parse(xhr.responseText);
+
+          if (xhr.status !== 200 || data.error) {
+            resultArea.innerHTML = `<div class="error-state">❌ ${data.error || "Terjadi kesalahan"}</div>`;
+            return;
+          }
+
+          renderResult(data);
+        } catch (err) {
+          resultArea.innerHTML = `<div class="error-state">❌ Gagal membaca respons server</div>`;
+        }
+      };
+
+      xhr.onerror = () => {
+        btnDetect.disabled = false;
+        resultArea.innerHTML = `<div class="error-state">❌ Upload gagal, cek koneksi ke server</div>`;
+      };
+
+      xhr.send(formData);
+    }
+
+    function renderResult(data) {
+      const cacheBust = "?t=" + Date.now();
+
+      if (data.type === "image") {
+        resultArea.innerHTML = `
+          <div class="result-media">
+            <img src="${data.result_url}${cacheBust}" alt="Hasil deteksi" />
+          </div>
+          <a class="download-link" href="${data.result_url}" download>⬇️ Unduh hasil gambar</a>
+        `;
+      } else if (data.type === "video") {
+        // Tentukan MIME type berdasarkan ekstensi hasil (server bisa fallback ke .avi
+        // kalau codec mp4v/avc1 tidak tersedia di sistem)
+        const isAvi = data.result_url.toLowerCase().endsWith(".avi");
+        const mimeType = isAvi ? "video/x-msvideo" : "video/mp4";
+        const aviWarning = isAvi
+          ? `<p style="color:var(--text-dim); font-size:0.78rem; margin-top:6px;">
+               ⚠️ Server memakai codec fallback (.avi) karena mp4v/H.264 tidak tersedia.
+               Beberapa browser tidak bisa preview .avi langsung — unduh dan buka dengan VLC/media player jika preview kosong.
+             </p>`
+          : "";
+        resultArea.innerHTML = `
+          <div class="result-media">
+            <video controls autoplay muted loop>
+              <source src="${data.result_url}${cacheBust}" type="${mimeType}" />
+            </video>
+          </div>
+          ${aviWarning}
+          <a class="download-link" href="${data.result_url}" download>⬇️ Unduh hasil video</a>
+        `;
+      }
+
+      // Render daftar deteksi (mendukung format "confidence" untuk gambar
+      // dan "count" untuk video)
+      if (!data.detections || data.detections.length === 0) {
+        detectionList.innerHTML = `<li style="border:none; background:none; justify-content:center;">Tidak ada objek terdeteksi</li>`;
+        return;
+      }
+
+      detectionList.innerHTML = data.detections
+        .map((d) => {
+          const valueLabel = d.confidence !== undefined
+            ? `${(d.confidence * 100).toFixed(0)}%`
+            : `${d.count}x`;
+          return `<li><span>${d.label}</span><span class="conf">${valueLabel}</span></li>`;
+        })
+        .join("");
+
+      // Setelah upload selesai, refresh galeri agar screenshot baru langsung muncul
+      loadGallery();
+    }
+  </script>
+
+</body>
+</html>
