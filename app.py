@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 from ultralytics import YOLO
 
 # ====================== KONFIGURASI ======================
-MODEL_PATH = "model/best.pt"   # path ke model YOLO kamu
+MODEL_PATH = "Model/best.pt"   # path ke model YOLO kamu
 CAMERA_INDEX = 0               # 0 = kamera default. Ganti 1, 2, dst kalau ada banyak kamera
 CONF_THRESHOLD = 0.5           # ambang batas confidence deteksi
 FRAME_WIDTH = 640
