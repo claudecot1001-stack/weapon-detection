@@ -4,17 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Deteksi YOLO Real-Time</title>
+
+  <!-- Socket.IO dari CDN -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #171a21;
-      --border: #262b35;
-      --accent: #f5a623;
-      --text: #e8e8e8;
-      --text-dim: #9aa0a6;
-      --success: #3ddc84;
-      --danger: #e25555;
-      --info: #4da6ff;
+      --bg:        #0f1115;
+      --panel:     #171a21;
+      --border:    #262b35;
+      --accent:    #f5a623;
+      --text:      #e8e8e8;
+      --text-dim:  #9aa0a6;
+      --success:   #3ddc84;
+      --danger:    #e25555;
+      --info:      #4da6ff;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,6 +34,7 @@
       padding: 24px 16px 48px;
     }
 
+    /* ── Nav ── */
     nav {
       display: flex;
       gap: 10px;
@@ -39,41 +44,22 @@
       border-radius: 10px;
       padding: 6px;
     }
-
     nav a {
       color: var(--text-dim);
       text-decoration: none;
       padding: 8px 16px;
       border-radius: 8px;
       font-size: 0.85rem;
-      transition: 0.2s ease;
+      transition: 0.2s;
     }
-
     nav a:hover { color: var(--text); }
+    nav a.active { background: var(--accent); color: #1a1a1a; font-weight: 600; }
 
-    nav a.active {
-      background: var(--accent);
-      color: #1a1a1a;
-      font-weight: 600;
-    }
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 1.6rem; letter-spacing: 0.5px; margin-bottom: 6px; }
+    header p  { color: var(--text-dim); font-size: 0.9rem; }
 
-    header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    header h1 {
-      font-size: 1.6rem;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-
-    header p {
-      color: var(--text-dim);
-      font-size: 0.9rem;
-    }
-
-    /* Source switcher tabs */
+    /* ── Source tabs ── */
     .source-tabs {
       display: flex;
       gap: 0;
@@ -83,7 +69,6 @@
       border-radius: 10px;
       padding: 5px;
     }
-
     .source-tab {
       padding: 9px 20px;
       border-radius: 7px;
@@ -92,22 +77,12 @@
       color: var(--text-dim);
       font-size: 0.85rem;
       cursor: pointer;
-      transition: 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: unset;
-      flex: unset;
+      transition: 0.2s;
     }
+    .source-tab:hover { color: var(--text); }
+    .source-tab.active { background: var(--accent); color: #1a1a1a; font-weight: 600; }
 
-    .source-tab:hover { color: var(--text); border-color: transparent; }
-
-    .source-tab.active {
-      background: var(--accent);
-      color: #1a1a1a;
-      font-weight: 600;
-    }
-
+    /* ── Layout ── */
     .layout {
       display: flex;
       flex-wrap: wrap;
@@ -117,6 +92,7 @@
       justify-content: center;
     }
 
+    /* ── Video card ── */
     .video-card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -135,7 +111,8 @@
       aspect-ratio: 4 / 3;
     }
 
-    #videoFeed {
+    /* canvas untuk webcam & CCTV (Socket.IO) */
+    #canvasOutput {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -144,65 +121,48 @@
 
     .status-dot {
       position: absolute;
-      top: 12px;
-      left: 12px;
+      top: 12px; left: 12px;
       display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,.6);
       padding: 6px 10px;
       border-radius: 20px;
       font-size: 0.78rem;
+      pointer-events: none;
     }
-
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: var(--success);
       box-shadow: 0 0 6px var(--success);
-      transition: background 0.3s, box-shadow 0.3s;
+      transition: background .3s, box-shadow .3s;
     }
-
-    .dot.off {
-      background: var(--danger);
-      box-shadow: 0 0 6px var(--danger);
-    }
-
+    .dot.off { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
     .dot.connecting {
-      background: var(--accent);
-      box-shadow: 0 0 6px var(--accent);
+      background: var(--accent); box-shadow: 0 0 6px var(--accent);
       animation: pulse 1s infinite;
     }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* Source badge (top-right overlay) */
     .source-badge {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      background: rgba(0,0,0,0.6);
+      top: 12px; right: 12px;
+      background: rgba(0,0,0,.6);
       padding: 5px 10px;
       border-radius: 20px;
       font-size: 0.75rem;
       color: var(--info);
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      pointer-events: none;
     }
 
-    /* Controls */
+    /* ── Controls ── */
     .controls {
       display: flex;
       gap: 10px;
       margin-top: 14px;
       flex-wrap: wrap;
     }
-
     button {
       flex: 1;
       min-width: 120px;
@@ -213,68 +173,28 @@
       color: var(--text);
       font-size: 0.9rem;
       cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, color 0.2s;
-    }
-
-    button:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* Toggle camera button states */
-    #btnToggleCamera {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s ease;
-    }
-
-    #btnToggleCamera.cam-on {
-      border-color: var(--danger);
-      color: var(--danger);
-    }
-
-    #btnToggleCamera.cam-on:hover {
-      background: rgba(226,85,85,0.1);
-    }
-
-    #btnToggleCamera.cam-off {
-      border-color: var(--success);
-      color: var(--success);
-    }
-
-    #btnToggleCamera.cam-off:hover {
-      background: rgba(61,220,132,0.1);
-    }
-
-    #btnRefresh:hover { border-color: var(--info); color: var(--info); }
-
-    /* CCTV Connect button */
-    #btnConnectCCTV {
-      border-color: var(--info);
-      color: var(--info);
+      transition: background .2s, border-color .2s, color .2s;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
     }
+    button:hover { border-color: var(--accent); color: var(--accent); }
 
-    #btnConnectCCTV:hover {
-      background: rgba(77,166,255,0.1);
-      border-color: var(--info);
-      color: var(--info);
-    }
+    #btnToggleCam.cam-on { border-color: var(--danger); color: var(--danger); }
+    #btnToggleCam.cam-on:hover { background: rgba(226,85,85,.1); }
+    #btnToggleCam.cam-off { border-color: var(--success); color: var(--success); }
+    #btnToggleCam.cam-off:hover { background: rgba(61,220,132,.1); }
 
-    #btnConnectCCTV.connected {
-      border-color: var(--success);
-      color: var(--success);
-    }
+    #btnCCTV { border-color: var(--info); color: var(--info); }
+    #btnCCTV:hover { background: rgba(77,166,255,.1); }
+    #btnCCTV.connected { border-color: var(--success); color: var(--success); }
+    #btnCCTV.connected:hover { border-color: var(--danger); color: var(--danger); background: rgba(226,85,85,.1); }
 
-    #btnConnectCCTV.connected:hover {
-      background: rgba(61,220,132,0.1);
-      border-color: var(--danger);
-      color: var(--danger);
-    }
+    #btnFlip { border-color: var(--text-dim); color: var(--text-dim); }
+    #btnFlip:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* Detection panel */
+    /* ── Detection panel ── */
     .panel-card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -284,12 +204,7 @@
       max-width: 320px;
       height: fit-content;
     }
-
-    .panel-card h2 {
-      font-size: 1rem;
-      color: var(--accent);
-      margin-bottom: 12px;
-    }
+    .panel-card h2 { font-size: 1rem; color: var(--accent); margin-bottom: 12px; }
 
     #detectionList {
       list-style: none;
@@ -299,7 +214,6 @@
       max-height: 420px;
       overflow-y: auto;
     }
-
     #detectionList li {
       background: #1d212b;
       border: 1px solid var(--border);
@@ -309,12 +223,7 @@
       justify-content: space-between;
       font-size: 0.85rem;
     }
-
-    #detectionList li span.conf {
-      color: var(--accent);
-      font-weight: 600;
-    }
-
+    #detectionList li span.conf { color: var(--accent); font-weight: 600; }
     .empty-state {
       color: var(--text-dim);
       font-size: 0.85rem;
@@ -324,579 +233,656 @@
       border: none !important;
     }
 
-    /* ========== MODAL ========== */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.75);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      opacity: 0;
+    /* ── FPS badge ── */
+    .fps-badge {
+      position: absolute;
+      bottom: 12px; right: 12px;
+      background: rgba(0,0,0,.6);
+      padding: 4px 9px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      color: var(--success);
+      font-family: monospace;
       pointer-events: none;
-      transition: opacity 0.2s;
-      padding: 16px;
     }
 
-    .modal-overlay.open {
-      opacity: 1;
-      pointer-events: all;
+    /* ── Latency warning ── */
+    .lat-warn {
+      position: absolute;
+      bottom: 12px; left: 12px;
+      background: rgba(226,85,85,.15);
+      border: 1px solid var(--danger);
+      padding: 4px 9px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      color: var(--danger);
+      display: none;
+      pointer-events: none;
     }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+      padding: 16px;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
 
     .modal {
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 28px;
-      width: 100%;
-      max-width: 480px;
+      width: 100%; max-width: 480px;
       transform: translateY(12px);
-      transition: transform 0.2s;
+      transition: transform .2s;
     }
+    .modal-overlay.open .modal { transform: translateY(0); }
 
-    .modal-overlay.open .modal {
-      transform: translateY(0);
-    }
+    .modal h3 { font-size: 1.1rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+    .modal p.desc { color: var(--text-dim); font-size: .85rem; margin-bottom: 20px; line-height: 1.5; }
 
-    .modal h3 {
-      font-size: 1.1rem;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .modal p.desc {
-      color: var(--text-dim);
-      font-size: 0.85rem;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-
-    .form-group {
-      margin-bottom: 14px;
-    }
-
+    .form-group { margin-bottom: 14px; }
     .form-group label {
-      display: block;
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      display: block; font-size: .82rem; color: var(--text-dim);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px;
     }
-
     .form-group input {
-      width: 100%;
-      padding: 10px 12px;
-      background: #1d212b;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.2s;
+      width: 100%; padding: 10px 12px;
+      background: #1d212b; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: .9rem;
+      outline: none; transition: border-color .2s;
     }
+    .form-group input:focus { border-color: var(--info); }
+    .form-group input::placeholder { color: var(--text-dim); }
 
-    .form-group input:focus {
-      border-color: var(--info);
-    }
-
-    .form-group input::placeholder {
-      color: var(--text-dim);
-    }
-
-    /* Protocol selector */
-    .protocol-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
+    .protocol-row { display: flex; gap: 8px; margin-bottom: 14px; }
     .proto-btn {
-      flex: 1;
-      padding: 8px;
-      border-radius: 7px;
-      border: 1px solid var(--border);
-      background: #1d212b;
-      color: var(--text-dim);
-      font-size: 0.82rem;
-      cursor: pointer;
-      text-align: center;
-      min-width: unset;
-      transition: all 0.15s;
+      flex: 1; padding: 8px; border-radius: 7px;
+      border: 1px solid var(--border); background: #1d212b;
+      color: var(--text-dim); font-size: .82rem; cursor: pointer;
+      min-width: unset; transition: all .15s; text-align: center;
     }
-
     .proto-btn:hover { border-color: var(--info); color: var(--info); }
-
     .proto-btn.active {
       border-color: var(--info);
-      background: rgba(77,166,255,0.12);
-      color: var(--info);
-      font-weight: 600;
+      background: rgba(77,166,255,.12);
+      color: var(--info); font-weight: 600;
     }
 
-    /* URL preview */
     .url-preview {
-      background: #12151c;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      word-break: break-all;
-      margin-bottom: 16px;
-      min-height: 36px;
-      line-height: 1.5;
+      background: #12151c; border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      font-size: .78rem; color: var(--text-dim);
+      word-break: break-all; margin-bottom: 16px; min-height: 36px; line-height: 1.5;
     }
-
     .url-preview .url-label {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #555d6e;
-      display: block;
-      margin-bottom: 4px;
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .5px;
+      color: #555d6e; display: block; margin-bottom: 4px;
     }
+    .url-preview .url-val { color: var(--info); }
 
-    .url-preview .url-val {
-      color: var(--info);
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 4px;
-    }
-
+    .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
     .btn-cancel {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-dim);
-      font-size: 0.9rem;
-      cursor: pointer;
-      min-width: unset;
+      flex: 1; padding: 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-dim); font-size: .9rem; cursor: pointer; min-width: unset;
     }
-
     .btn-cancel:hover { border-color: var(--text-dim); color: var(--text); }
-
     .btn-connect {
-      flex: 2;
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      background: var(--info);
-      color: #0f1115;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      min-width: unset;
-      transition: background 0.2s;
+      flex: 2; padding: 10px; border-radius: 8px;
+      border: none; background: var(--info);
+      color: #0f1115; font-size: .9rem; font-weight: 600;
+      cursor: pointer; min-width: unset; transition: background .2s;
     }
-
     .btn-connect:hover { background: #6fbfff; color: #0f1115; border-color: transparent; }
+    .btn-connect:disabled { background: #2a3040; color: var(--text-dim); cursor: not-allowed; }
 
-    .btn-connect:disabled {
-      background: #2a3040;
-      color: var(--text-dim);
-      cursor: not-allowed;
-    }
-
-    /* Error / info message inside modal */
     .modal-msg {
-      font-size: 0.82rem;
-      border-radius: 7px;
-      padding: 8px 12px;
-      margin-bottom: 12px;
-      display: none;
+      font-size: .82rem; border-radius: 7px;
+      padding: 8px 12px; margin-bottom: 12px; display: none;
     }
-
     .modal-msg.error {
-      background: rgba(226,85,85,0.1);
-      border: 1px solid var(--danger);
-      color: var(--danger);
-      display: block;
+      background: rgba(226,85,85,.1); border: 1px solid var(--danger);
+      color: var(--danger); display: block;
     }
-
     .modal-msg.info {
-      background: rgba(77,166,255,0.1);
-      border: 1px solid var(--info);
-      color: var(--info);
-      display: block;
+      background: rgba(77,166,255,.1); border: 1px solid var(--info);
+      color: var(--info); display: block;
     }
 
-    /* Divider */
     .divider {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 16px 0;
-      color: var(--text-dim);
-      font-size: 0.78rem;
+      display: flex; align-items: center; gap: 10px;
+      margin: 16px 0; color: var(--text-dim); font-size: .78rem;
     }
-
     .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
+      content:''; flex:1; height:1px; background: var(--border);
     }
   </style>
 </head>
 <body>
 
-  <nav>
-    <a href="/" class="active">📷 Live Camera</a>
-    <a href="/upload">📁 Upload File</a>
-  </nav>
+<nav>
+  <a href="/" class="active">📷 Live Camera</a>
+  <a href="/upload">📁 Upload File</a>
+</nav>
 
-  <header>
-    <h1>🎯 Deteksi Objek Real-Time (YOLO)</h1>
-    <p id="headerSub">Model: <code>model/best.pt</code> &middot; Sumber: kamera aktif</p>
-  </header>
+<header>
+  <h1>🎯 Deteksi Objek Real-Time (YOLO)</h1>
+  <p id="headerSub">Model: <code>Model/best.pt</code> &middot; Sumber: webcam browser</p>
+</header>
 
-  <!-- Source switcher -->
-  <div class="source-tabs">
-    <button class="source-tab active" id="tabCamera" onclick="switchSource('camera')">📷 Kamera Lokal</button>
-    <button class="source-tab" id="tabCCTV" onclick="switchSource('cctv')">📡 CCTV / IP Camera</button>
-  </div>
+<!-- Source tabs -->
+<div class="source-tabs">
+  <button class="source-tab active" id="tabWebcam" onclick="switchSource('webcam')">📷 Webcam Browser</button>
+  <button class="source-tab" id="tabCCTV"   onclick="switchSource('cctv')">📡 CCTV / IP Camera</button>
+</div>
 
-  <div class="layout">
-    <div class="video-card">
-      <div class="video-wrapper">
-        <img id="videoFeed" src="/video_feed" alt="Live detection feed" />
-        <div class="status-dot">
-          <span class="dot" id="statusDot"></span>
-          <span id="statusLabel">LIVE</span>
-        </div>
-        <div class="source-badge" id="sourceBadge">📷 Kamera</div>
+<div class="layout">
+
+  <!-- Video Card -->
+  <div class="video-card">
+    <div class="video-wrapper">
+      <!-- Canvas menampilkan frame hasil deteksi -->
+      <canvas id="canvasOutput"></canvas>
+      <!-- Hidden video untuk getUserMedia preview -->
+      <video id="videoLocal" autoplay playsinline muted style="display:none;"></video>
+
+      <div class="status-dot">
+        <span class="dot off" id="statusDot"></span>
+        <span id="statusLabel">TIDAK AKTIF</span>
       </div>
+      <div class="source-badge" id="sourceBadge">📷 Webcam</div>
+      <div class="fps-badge" id="fpsBadge">-- fps</div>
+      <div class="lat-warn" id="latWarn">⚠ Latensi tinggi</div>
+    </div>
 
-      <div class="controls">
-        <!-- Toggle camera (single button replaces start+stop) -->
-        <button id="btnToggleCamera" class="cam-on" onclick="toggleCamera()">
-          <span id="toggleIcon">⏹️</span>
-          <span id="toggleText">Matikan Kamera</span>
+    <div class="controls">
+      <!-- Webcam controls -->
+      <div id="webcamControls" style="display:flex;gap:10px;flex:1;flex-wrap:wrap;">
+        <button id="btnToggleCam" class="cam-off" onclick="toggleWebcam()">
+          <span id="toggleIcon">▶️</span>
+          <span id="toggleText">Nyalakan Kamera</span>
         </button>
-
-        <!-- CCTV connect button (hidden when on camera tab) -->
-        <button id="btnConnectCCTV" onclick="openCCTVModal()" style="display:none;">
-          📡 Hubungkan CCTV
+        <button id="btnFlip" onclick="flipCamera()" title="Ganti kamera depan/belakang">
+          🔄 Ganti Kamera
         </button>
-
-        <button id="btnRefresh" onclick="refreshStream()">🔄 Refresh</button>
-      </div>
-    </div>
-
-    <div class="panel-card">
-      <h2>Hasil Deteksi</h2>
-      <ul id="detectionList">
-        <li class="empty-state">Belum ada deteksi...</li>
-      </ul>
-    </div>
-  </div>
-
-
-  <!-- ===== CCTV Modal ===== -->
-  <div class="modal-overlay" id="cctvModal">
-    <div class="modal">
-      <h3>📡 Hubungkan CCTV / IP Camera</h3>
-      <p class="desc">
-        Masukkan alamat dan kredensial kamera IP / CCTV kamu. URL RTSP / HTTP akan
-        dikirim ke server dan digunakan sebagai sumber stream YOLO.
-      </p>
-
-      <!-- Protocol selector -->
-      <div style="font-size:0.82rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Protokol</div>
-      <div class="protocol-row">
-        <button class="proto-btn active" id="protoRTSP" onclick="setProto('rtsp')">RTSP</button>
-        <button class="proto-btn" id="protoHTTP" onclick="setProto('http')">HTTP</button>
-        <button class="proto-btn" id="protoHTTPS" onclick="setProto('https')">HTTPS</button>
-        <button class="proto-btn" id="protoCustom" onclick="setProto('custom')">Custom URL</button>
       </div>
 
-      <!-- Custom URL mode -->
-      <div id="customUrlSection" style="display:none;">
-        <div class="form-group">
-          <label>URL Lengkap</label>
-          <input type="text" id="customUrl" placeholder="rtsp://user:pass@192.168.1.100:554/stream1" oninput="updatePreview()" />
-        </div>
-      </div>
-
-      <!-- Structured mode -->
-      <div id="structuredSection">
-        <div class="form-group">
-          <label>Alamat IP / Host</label>
-          <input type="text" id="cctvHost" placeholder="192.168.1.100" oninput="updatePreview()" />
-        </div>
-
-        <div style="display:flex; gap:10px;">
-          <div class="form-group" style="flex:1;">
-            <label>Port</label>
-            <input type="text" id="cctvPort" placeholder="554" oninput="updatePreview()" />
-          </div>
-          <div class="form-group" style="flex:2;">
-            <label>Path / Channel</label>
-            <input type="text" id="cctvPath" placeholder="/stream1 atau /cam/realmonitor" oninput="updatePreview()" />
-          </div>
-        </div>
-
-        <div class="divider">Kredensial (opsional)</div>
-
-        <div style="display:flex; gap:10px;">
-          <div class="form-group" style="flex:1;">
-            <label>Username</label>
-            <input type="text" id="cctvUser" placeholder="admin" oninput="updatePreview()" />
-          </div>
-          <div class="form-group" style="flex:1;">
-            <label>Password</label>
-            <input type="password" id="cctvPass" placeholder="••••••" oninput="updatePreview()" />
-          </div>
-        </div>
-      </div>
-
-      <!-- URL Preview -->
-      <div class="url-preview">
-        <span class="url-label">URL yang akan digunakan</span>
-        <span class="url-val" id="urlPreview">—</span>
-      </div>
-
-      <div class="modal-msg" id="modalMsg"></div>
-
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeCCTVModal()">Batal</button>
-        <button class="btn-connect" id="btnDoConnect" onclick="connectCCTV()">🔌 Hubungkan</button>
+      <!-- CCTV controls -->
+      <div id="cctvControls" style="display:none;gap:10px;flex:1;flex-wrap:wrap;">
+        <button id="btnCCTV" onclick="openCCTVModal()">📡 Hubungkan CCTV</button>
       </div>
     </div>
   </div>
 
+  <!-- Detection Panel -->
+  <div class="panel-card">
+    <h2>Hasil Deteksi</h2>
+    <ul id="detectionList">
+      <li class="empty-state">Belum ada deteksi...</li>
+    </ul>
+  </div>
 
-  <script>
-    // ======================= STATE =======================
-    let cameraOn = true;
-    let currentSource = 'camera';  // 'camera' | 'cctv'
-    let cctvConnected = false;
-    let currentProto = 'rtsp';
-    let cctvUrl = '';
-    const DEFAULT_PORTS = { rtsp: '554', http: '80', https: '443' };
+</div>
 
-    // ======================= SOURCE TABS =======================
-    function switchSource(src) {
-      currentSource = src;
 
-      document.getElementById('tabCamera').classList.toggle('active', src === 'camera');
-      document.getElementById('tabCCTV').classList.toggle('active', src === 'cctv');
+<!-- ===== CCTV Modal ===== -->
+<div class="modal-overlay" id="cctvModal">
+  <div class="modal">
+    <h3>📡 Hubungkan CCTV / IP Camera</h3>
+    <p class="desc">
+      Masukkan alamat dan kredensial kamera IP / CCTV kamu. URL RTSP / HTTP akan
+      dikirim ke server dan digunakan sebagai sumber stream YOLO.
+    </p>
 
-      const toggleBtn = document.getElementById('btnToggleCamera');
-      const cctvBtn   = document.getElementById('btnConnectCCTV');
+    <div style="font-size:.82rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Protokol</div>
+    <div class="protocol-row">
+      <button class="proto-btn active" id="protoRTSP"   onclick="setProto('rtsp')">RTSP</button>
+      <button class="proto-btn"        id="protoHTTP"   onclick="setProto('http')">HTTP</button>
+      <button class="proto-btn"        id="protoHTTPS"  onclick="setProto('https')">HTTPS</button>
+      <button class="proto-btn"        id="protoCustom" onclick="setProto('custom')">Custom</button>
+    </div>
 
-      if (src === 'camera') {
-        toggleBtn.style.display = '';
-        cctvBtn.style.display   = 'none';
-        document.getElementById('headerSub').innerHTML = 'Model: <code>model/best.pt</code> &middot; Sumber: kamera aktif';
-        refreshStream('/video_feed');
-        setStatus('live', 'LIVE', '📷 Kamera');
-      } else {
-        toggleBtn.style.display = 'none';
-        cctvBtn.style.display   = '';
-        document.getElementById('headerSub').innerHTML = 'Model: <code>model/best.pt</code> &middot; Sumber: CCTV / IP Camera';
+    <div id="customUrlSection" style="display:none;">
+      <div class="form-group">
+        <label>URL Lengkap</label>
+        <input type="text" id="customUrl" placeholder="rtsp://user:pass@192.168.1.100:554/stream1" oninput="updatePreview()" />
+      </div>
+    </div>
 
-        if (!cctvConnected) {
-          setStatus('off', 'TIDAK TERHUBUNG', '📡 CCTV');
-          // Show modal immediately when switching to CCTV tab without connection
-          openCCTVModal();
-        }
-      }
+    <div id="structuredSection">
+      <div class="form-group">
+        <label>Alamat IP / Host</label>
+        <input type="text" id="cctvHost" placeholder="192.168.1.100" oninput="updatePreview()" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Port</label>
+          <input type="text" id="cctvPort" placeholder="554" oninput="updatePreview()" />
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>Path / Channel</label>
+          <input type="text" id="cctvPath" placeholder="/stream1" oninput="updatePreview()" />
+        </div>
+      </div>
+      <div class="divider">Kredensial (opsional)</div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Username</label>
+          <input type="text" id="cctvUser" placeholder="admin" oninput="updatePreview()" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Password</label>
+          <input type="password" id="cctvPass" placeholder="••••••" oninput="updatePreview()" />
+        </div>
+      </div>
+    </div>
+
+    <div class="url-preview">
+      <span class="url-label">URL yang akan digunakan</span>
+      <span class="url-val" id="urlPreview">—</span>
+    </div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCCTVModal()">Batal</button>
+      <button class="btn-connect" id="btnDoConnect" onclick="connectCCTV()">🔌 Hubungkan</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// =====================================================================
+//  STATE
+// =====================================================================
+let currentSource  = 'webcam';  // 'webcam' | 'cctv'
+let webcamActive   = false;
+let cctvConnected  = false;
+let facingMode     = 'user';    // 'user' | 'environment'
+let localStream    = null;
+
+// FPS tracking
+let fpsCounter = 0;
+let fpsLast    = performance.now();
+let fpsVal     = 0;
+let captureInterval = null;
+
+// Socket.IO
+const socket = io({ transports: ['websocket', 'polling'] });
+
+// Canvas & video elements
+const canvas      = document.getElementById('canvasOutput');
+const ctx         = canvas.getContext('2d');
+const videoLocal  = document.getElementById('videoLocal');
+
+// Resize canvas to wrapper
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Draw placeholder on canvas
+function drawPlaceholder(msg, sub = '') {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Icon
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2 - 40;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 36, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+  ctx.fillStyle = '#444';
+  ctx.fill();
+
+  ctx.fillStyle = '#aaa';
+  ctx.font = '15px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(msg, cx, canvas.height / 2 + 20);
+
+  if (sub) {
+    ctx.fillStyle = '#5599cc';
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.fillText(sub, cx, canvas.height / 2 + 44);
+  }
+}
+
+drawPlaceholder('Tekan "Nyalakan Kamera" untuk memulai.', 'Webcam browser → YOLO → hasil tampil di sini');
+
+
+// =====================================================================
+//  STATUS UI
+// =====================================================================
+function setStatus(state, label, badge) {
+  const dot = document.getElementById('statusDot');
+  const lbl = document.getElementById('statusLabel');
+  const bdg = document.getElementById('sourceBadge');
+  dot.className = 'dot ' + (state === 'live' ? '' : state === 'off' ? 'off' : 'connecting');
+  lbl.textContent = label;
+  if (badge) bdg.textContent = badge;
+}
+
+function updateFPS() {
+  const now  = performance.now();
+  const diff = now - fpsLast;
+  if (diff >= 1000) {
+    fpsVal  = Math.round((fpsCounter * 1000) / diff);
+    fpsLast = now;
+    fpsCounter = 0;
+    document.getElementById('fpsBadge').textContent = fpsVal + ' fps';
+    document.getElementById('latWarn').style.display = fpsVal > 0 && fpsVal < 4 ? '' : 'none';
+  }
+  fpsCounter++;
+}
+
+function updateDetectionList(detections) {
+  const list = document.getElementById('detectionList');
+  if (!detections || detections.length === 0) {
+    list.innerHTML = '<li class="empty-state">Tidak ada objek terdeteksi</li>';
+    return;
+  }
+  list.innerHTML = detections.map(d =>
+    `<li><span>${d.label}</span><span class="conf">${(d.confidence * 100).toFixed(0)}%</span></li>`
+  ).join('');
+}
+
+
+// =====================================================================
+//  SOURCE TABS
+// =====================================================================
+function switchSource(src) {
+  currentSource = src;
+  document.getElementById('tabWebcam').classList.toggle('active', src === 'webcam');
+  document.getElementById('tabCCTV').classList.toggle('active',   src === 'cctv');
+  document.getElementById('webcamControls').style.display = src === 'webcam' ? 'flex' : 'none';
+  document.getElementById('cctvControls').style.display   = src === 'cctv'   ? 'flex' : 'none';
+
+  if (src === 'webcam') {
+    document.getElementById('headerSub').innerHTML = 'Model: <code>Model/best.pt</code> &middot; Sumber: webcam browser';
+    setStatus('off', 'TIDAK AKTIF', '📷 Webcam');
+    stopCCTVCapture();
+    if (webcamActive) startWebcamCapture();
+  } else {
+    document.getElementById('headerSub').innerHTML = 'Model: <code>Model/best.pt</code> &middot; Sumber: CCTV / IP Camera';
+    stopWebcamCapture();
+    if (!cctvConnected) {
+      setStatus('off', 'TIDAK TERHUBUNG', '📡 CCTV');
+      openCCTVModal();
+    } else {
+      setStatus('live', 'LIVE', '📡 CCTV');
     }
+  }
+}
 
-    // ======================= CAMERA TOGGLE =======================
-    function toggleCamera() {
-      if (cameraOn) {
-        fetch('/stop_camera').then(() => {
-          cameraOn = false;
-          const btn = document.getElementById('btnToggleCamera');
-          btn.classList.remove('cam-on');
-          btn.classList.add('cam-off');
-          document.getElementById('toggleIcon').textContent = '▶️';
-          document.getElementById('toggleText').textContent = 'Nyalakan Kamera';
-          setStatus('off', 'MATI', '📷 Kamera');
-        });
-      } else {
-        fetch('/start_camera').then(() => {
-          cameraOn = true;
-          const btn = document.getElementById('btnToggleCamera');
-          btn.classList.remove('cam-off');
-          btn.classList.add('cam-on');
-          document.getElementById('toggleIcon').textContent = '⏹️';
-          document.getElementById('toggleText').textContent = 'Matikan Kamera';
-          refreshStream('/video_feed');
-          setStatus('live', 'LIVE', '📷 Kamera');
-        });
-      }
-    }
 
-    // ======================= STATUS DOT =======================
-    function setStatus(state, label, badge) {
-      const dot   = document.getElementById('statusDot');
-      const lbl   = document.getElementById('statusLabel');
-      const bdg   = document.getElementById('sourceBadge');
-      dot.className = 'dot ' + (state === 'live' ? '' : state === 'off' ? 'off' : 'connecting');
-      lbl.textContent = label;
-      if (badge) bdg.textContent = badge;
-    }
+// =====================================================================
+//  WEBCAM via getUserMedia + Socket.IO
+// =====================================================================
+async function toggleWebcam() {
+  if (webcamActive) {
+    stopWebcamStream();
+  } else {
+    await startWebcamStream();
+  }
+}
 
-    // ======================= STREAM =======================
-    function refreshStream(url) {
-      const feed = document.getElementById('videoFeed');
-      feed.src = (url || feed.src.split('?')[0]) + '?t=' + Date.now();
-    }
-
-    document.getElementById('btnRefresh').addEventListener('click', () => {
-      if (currentSource === 'camera') {
-        refreshStream('/video_feed');
-      } else if (cctvConnected) {
-        refreshStream('/cctv_feed');
-      }
+async function startWebcamStream() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
     });
+    videoLocal.srcObject = localStream;
+    await videoLocal.play();
+    webcamActive = true;
 
-    // ======================= CCTV MODAL =======================
-    function openCCTVModal() {
-      document.getElementById('cctvModal').classList.add('open');
-      updatePreview();
+    const btn = document.getElementById('btnToggleCam');
+    btn.classList.replace('cam-off', 'cam-on');
+    document.getElementById('toggleIcon').textContent = '⏹️';
+    document.getElementById('toggleText').textContent = 'Matikan Kamera';
+    setStatus('live', 'LIVE', '📷 Webcam');
+
+    if (currentSource === 'webcam') startWebcamCapture();
+  } catch (err) {
+    console.error('getUserMedia error:', err);
+    drawPlaceholder(
+      'Kamera tidak dapat diakses.',
+      err.name === 'NotAllowedError'
+        ? 'Izinkan akses kamera di browser kamu.'
+        : err.message
+    );
+    setStatus('off', 'ERROR', '📷 Webcam');
+  }
+}
+
+function stopWebcamStream() {
+  stopWebcamCapture();
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
+  videoLocal.srcObject = null;
+  webcamActive = false;
+
+  const btn = document.getElementById('btnToggleCam');
+  btn.classList.replace('cam-on', 'cam-off');
+  document.getElementById('toggleIcon').textContent = '▶️';
+  document.getElementById('toggleText').textContent = 'Nyalakan Kamera';
+  setStatus('off', 'MATI', '📷 Webcam');
+  drawPlaceholder('Kamera dimatikan.', 'Klik "Nyalakan Kamera" untuk memulai kembali.');
+}
+
+// Capture loop: ambil frame dari <video>, kirim ke server via socket
+let capCanvas  = null;
+let capCtx     = null;
+let pendingReq = false;   // tunggu respons sebelum kirim frame baru
+
+function startWebcamCapture() {
+  if (captureInterval) return;
+
+  capCanvas      = document.createElement('canvas');
+  capCanvas.width  = 640;
+  capCanvas.height = 480;
+  capCtx = capCanvas.getContext('2d');
+
+  captureInterval = setInterval(() => {
+    if (pendingReq || !webcamActive || videoLocal.readyState < 2) return;
+
+    capCtx.drawImage(videoLocal, 0, 0, 640, 480);
+    const dataUrl = capCanvas.toDataURL('image/jpeg', 0.7);
+    pendingReq = true;
+    socket.emit('webcam_frame', { image: dataUrl });
+  }, 100);   // kirim maksimal 10 frame/detik ke server
+}
+
+function stopWebcamCapture() {
+  if (captureInterval) {
+    clearInterval(captureInterval);
+    captureInterval = null;
+  }
+  pendingReq = false;
+}
+
+// Terima hasil deteksi dari server
+socket.on('detection_result', (data) => {
+  pendingReq = false;
+
+  if (currentSource !== 'webcam') return;
+
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    updateFPS();
+  };
+  img.src = data.image;
+
+  updateDetectionList(data.detections);
+});
+
+
+// =====================================================================
+//  FLIP CAMERA (depan/belakang, untuk mobile)
+// =====================================================================
+async function flipCamera() {
+  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  if (webcamActive) {
+    stopWebcamStream();
+    await startWebcamStream();
+  }
+}
+
+
+// =====================================================================
+//  CCTV via Socket.IO broadcast dari server
+// =====================================================================
+socket.on('cctv_frame', (data) => {
+  if (currentSource !== 'cctv') return;
+
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    updateFPS();
+  };
+  img.src = data.image;
+
+  updateDetectionList(data.detections);
+});
+
+socket.on('cctv_status', (data) => {
+  if (data.status === 'disconnected') {
+    cctvConnected = false;
+    setStatus('off', 'TERPUTUS', '📡 CCTV');
+    const btn = document.getElementById('btnCCTV');
+    btn.classList.remove('connected');
+    btn.textContent = '📡 Hubungkan CCTV';
+    drawPlaceholder('Koneksi CCTV terputus.', 'Klik "Hubungkan CCTV" untuk mencoba ulang.');
+  }
+});
+
+function stopCCTVCapture() {
+  // CCTV broadcast dihandle server, client hanya stop menampilkan
+}
+
+
+// =====================================================================
+//  CCTV MODAL
+// =====================================================================
+const DEFAULT_PORTS = { rtsp: '554', http: '80', https: '443' };
+let currentProto = 'rtsp';
+
+function openCCTVModal()  { document.getElementById('cctvModal').classList.add('open'); updatePreview(); }
+function closeCCTVModal() { document.getElementById('cctvModal').classList.remove('open'); clearModalMsg(); }
+
+document.getElementById('cctvModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCCTVModal();
+});
+
+function setProto(p) {
+  currentProto = p;
+  ['RTSP','HTTP','HTTPS','Custom'].forEach(x => {
+    document.getElementById('proto' + x).classList.toggle('active', x.toLowerCase() === p);
+  });
+  const isCustom = p === 'custom';
+  document.getElementById('customUrlSection').style.display  = isCustom ? '' : 'none';
+  document.getElementById('structuredSection').style.display = isCustom ? 'none' : '';
+  if (!isCustom && DEFAULT_PORTS[p]) {
+    const portInput = document.getElementById('cctvPort');
+    if (!portInput.value || Object.values(DEFAULT_PORTS).includes(portInput.value)) {
+      portInput.value = DEFAULT_PORTS[p];
     }
+  }
+  updatePreview();
+}
 
-    function closeCCTVModal() {
-      document.getElementById('cctvModal').classList.remove('open');
-      clearModalMsg();
-    }
+function buildUrl() {
+  if (currentProto === 'custom') return document.getElementById('customUrl').value.trim();
+  const host = document.getElementById('cctvHost').value.trim();
+  const port = document.getElementById('cctvPort').value.trim();
+  const path = document.getElementById('cctvPath').value.trim() || '/';
+  const user = document.getElementById('cctvUser').value.trim();
+  const pass = document.getElementById('cctvPass').value.trim();
+  if (!host) return '';
+  const creds    = user ? (pass ? `${user}:${pass}@` : `${user}@`) : '';
+  const portPart = port ? `:${port}` : '';
+  return `${currentProto}://${creds}${host}${portPart}${path.startsWith('/') ? path : '/' + path}`;
+}
 
-    // Close modal on overlay click
-    document.getElementById('cctvModal').addEventListener('click', function(e) {
-      if (e.target === this) closeCCTVModal();
+function updatePreview() {
+  const url = buildUrl();
+  document.getElementById('urlPreview').textContent     = url || '—';
+  document.getElementById('btnDoConnect').disabled      = !url;
+}
+
+function clearModalMsg() {
+  const el = document.getElementById('modalMsg');
+  el.className = 'modal-msg'; el.textContent = '';
+}
+
+function showModalMsg(type, msg) {
+  const el = document.getElementById('modalMsg');
+  el.className = 'modal-msg ' + type; el.textContent = msg;
+}
+
+async function connectCCTV() {
+  const url = buildUrl();
+  if (!url) return;
+
+  clearModalMsg();
+  showModalMsg('info', '⏳ Menghubungkan ke ' + url + ' ...');
+  document.getElementById('btnDoConnect').disabled = true;
+  setStatus('connecting', 'CONNECTING...', '📡 CCTV');
+
+  try {
+    const res  = await fetch('/connect_cctv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
     });
+    const data = await res.json();
 
-    // Protocol switching
-    function setProto(p) {
-      currentProto = p;
-      ['RTSP','HTTP','HTTPS','Custom'].forEach(x => {
-        document.getElementById('proto' + x).classList.toggle('active', x.toLowerCase() === p);
-      });
+    if (res.ok && data.status === 'connected') {
+      cctvConnected = true;
+      closeCCTVModal();
+      setStatus('live', 'LIVE', '📡 CCTV');
 
-      const isCustom = p === 'custom';
-      document.getElementById('customUrlSection').style.display  = isCustom ? '' : 'none';
-      document.getElementById('structuredSection').style.display = isCustom ? 'none' : '';
+      const btn = document.getElementById('btnCCTV');
+      btn.classList.add('connected');
+      btn.innerHTML = '✅ Terhubung &nbsp;·&nbsp; Ganti';
 
-      if (!isCustom && DEFAULT_PORTS[p]) {
-        const portInput = document.getElementById('cctvPort');
-        if (!portInput.value || Object.values(DEFAULT_PORTS).includes(portInput.value)) {
-          portInput.value = DEFAULT_PORTS[p];
-        }
-      }
-      updatePreview();
+      drawPlaceholder('Menerima stream CCTV...', 'Frame akan tampil sebentar lagi.');
+    } else {
+      showModalMsg('error', '❌ ' + (data.error || 'Gagal terhubung.'));
+      setStatus('off', 'GAGAL', '📡 CCTV');
     }
+  } catch (err) {
+    showModalMsg('error', '❌ Tidak bisa menghubungi server. Pastikan server berjalan.');
+    setStatus('off', 'ERROR', '📡 CCTV');
+  } finally {
+    document.getElementById('btnDoConnect').disabled = false;
+  }
+}
 
-    function buildUrl() {
-      if (currentProto === 'custom') {
-        return document.getElementById('customUrl').value.trim();
-      }
+// Socket connected / disconnected feedback
+socket.on('connect',    () => console.log('[Socket.IO] Terhubung ke server.'));
+socket.on('disconnect', () => {
+  setStatus('off', 'SERVER TERPUTUS', null);
+  drawPlaceholder('Koneksi ke server terputus.', 'Coba refresh halaman.');
+});
+socket.on('error', (data) => console.error('[Socket.IO] Error:', data));
 
-      const host = document.getElementById('cctvHost').value.trim();
-      const port = document.getElementById('cctvPort').value.trim();
-      const path = document.getElementById('cctvPath').value.trim() || '/';
-      const user = document.getElementById('cctvUser').value.trim();
-      const pass = document.getElementById('cctvPass').value.trim();
-
-      if (!host) return '';
-
-      const creds = user ? (pass ? `${user}:${pass}@` : `${user}@`) : '';
-      const portPart = port ? `:${port}` : '';
-      return `${currentProto}://${creds}${host}${portPart}${path.startsWith('/') ? path : '/' + path}`;
-    }
-
-    function updatePreview() {
-      const url = buildUrl();
-      document.getElementById('urlPreview').textContent = url || '—';
-      document.getElementById('btnDoConnect').disabled = !url;
-    }
-
-    function clearModalMsg() {
-      const el = document.getElementById('modalMsg');
-      el.className = 'modal-msg';
-      el.textContent = '';
-    }
-
-    function showModalMsg(type, msg) {
-      const el = document.getElementById('modalMsg');
-      el.className = 'modal-msg ' + type;
-      el.textContent = msg;
-    }
-
-    async function connectCCTV() {
-      const url = buildUrl();
-      if (!url) return;
-
-      clearModalMsg();
-      showModalMsg('info', '⏳ Menghubungkan ke ' + url + ' ...');
-      document.getElementById('btnDoConnect').disabled = true;
-      setStatus('connecting', 'CONNECTING...', '📡 CCTV');
-
-      try {
-        const res  = await fetch('/connect_cctv', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-        const data = await res.json();
-
-        if (res.ok && data.status === 'connected') {
-          cctvConnected = true;
-          cctvUrl = url;
-          closeCCTVModal();
-          setStatus('live', 'LIVE', '📡 CCTV');
-
-          // Update connect button
-          const cctvBtn = document.getElementById('btnConnectCCTV');
-          cctvBtn.classList.add('connected');
-          cctvBtn.innerHTML = '✅ CCTV Terhubung &nbsp;·&nbsp; Ganti';
-
-          refreshStream('/cctv_feed');
-        } else {
-          showModalMsg('error', '❌ Gagal terhubung: ' + (data.error || 'Server tidak merespons.'));
-          setStatus('off', 'GAGAL', '📡 CCTV');
-        }
-      } catch (err) {
-        showModalMsg('error', '❌ Tidak bisa menghubungi server Flask. Pastikan server berjalan.');
-        setStatus('off', 'ERROR', '📡 CCTV');
-      } finally {
-        document.getElementById('btnDoConnect').disabled = false;
-      }
-    }
-
-    // ======================= DETECTION POLLING =======================
-    async function pollDetections() {
-      try {
-        const res  = await fetch('/detections');
-        const data = await res.json();
-
-        const list = document.getElementById('detectionList');
-        if (!data || data.length === 0) {
-          list.innerHTML = '<li class="empty-state">Tidak ada objek terdeteksi</li>';
-          return;
-        }
-        list.innerHTML = data.map(d =>
-          `<li><span>${d.label}</span><span class="conf">${(d.confidence * 100).toFixed(0)}%</span></li>`
-        ).join('');
-      } catch {}
-    }
-
-    setInterval(pollDetections, 1000);
-
-    // Init port default
-    document.getElementById('cctvPort').value = DEFAULT_PORTS['rtsp'];
-  </script>
+// Init default port
+document.getElementById('cctvPort').value = DEFAULT_PORTS['rtsp'];
+</script>
 </body>
 </html>
