@@ -2,4 +2,4 @@ Flask
 Flask-SocketIO
 gunicorn
 opencv-python-headless
-ultralytics
+ultralytics6
