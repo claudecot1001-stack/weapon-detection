@@ -30,7 +30,7 @@ from werkzeug.utils import secure_filename
 from ultralytics import YOLO
 
 # ====================== KONFIGURASI ======================
-MODEL_PATH      = "Model/best2.pt"
+MODEL_PATH      = "Model/best3.pt"
 CONF_THRESHOLD  = 0.5
 FRAME_WIDTH     = 640
 FRAME_HEIGHT    = 480
